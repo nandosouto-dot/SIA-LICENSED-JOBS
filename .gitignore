@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+output/
+logs/
+browser_profile/
+.env
+*.egg-info
+.pytest_cache/
+_smoke_*.py
