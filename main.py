@@ -161,7 +161,7 @@ def _dry_run():
     deduped = dedupe(filtered)
     ranked = rank(deduped)
     out_path = write_output(ranked)
-    print(f"Dry-run: {len(raw)} raw → {len(ranked)} accepted → {out_path}")
+    print(f"Dry-run: {len(raw)} raw -> {len(ranked)} accepted -> {out_path}")
 
 
 def main():

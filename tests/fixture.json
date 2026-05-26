@@ -1,0 +1,38 @@
+[
+  {
+    "source": "Reed",
+    "title": "Door Supervisor - Static Corporate Site",
+    "company": "Acme Security Ltd",
+    "location": "London SE1 4AB",
+    "salary": "£32,000 - £36,000",
+    "date_posted": "2 days ago",
+    "url": "https://reed.co.uk/jobs/12345",
+    "description": "Permanent night shift role. 4 on 4 off. Must hold valid SIA Licence (Door Supervisor). Static site at corporate HQ.",
+    "employment_type": "Permanent",
+    "shift_text": "Nights only, 4 on 4 off"
+  },
+  {
+    "source": "Indeed",
+    "title": "Event Steward",
+    "company": "FestivalSec",
+    "location": "Reading",
+    "salary": "£12/hr",
+    "date_posted": "Yesterday",
+    "url": "https://indeed.com/jobs/9999",
+    "description": "Festival security work, weekends only. Zero hours contract.",
+    "employment_type": "Casual",
+    "shift_text": "Variable"
+  },
+  {
+    "source": "CV-Library",
+    "title": "Night Concierge",
+    "company": "Concierge London",
+    "location": "Croydon CR0 2AA",
+    "salary": "£28k",
+    "date_posted": "1 week ago",
+    "url": "https://cv-library.co.uk/job/55555",
+    "description": "Front desk security at residential block. SIA Door Supervisor licence required. Permanent night shifts.",
+    "employment_type": "Permanent",
+    "shift_text": "Permanent nights"
+  }
+]
