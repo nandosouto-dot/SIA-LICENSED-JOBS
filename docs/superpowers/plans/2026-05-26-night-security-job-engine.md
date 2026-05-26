@@ -785,8 +785,8 @@ class BrowserSession:
         )
         self.page = self._context.new_page()
         try:
-            from playwright_stealth import stealth_sync
-            stealth_sync(self.page)
+            from playwright_stealth import Stealth
+            Stealth().apply_stealth_sync(self.page)
         except Exception as e:
             log.warning(f"playwright-stealth not applied: {e}")
         return self
