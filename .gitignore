@@ -8,3 +8,5 @@ browser_profile/
 *.egg-info
 .pytest_cache/
 _smoke_*.py
+_debug_*.py
+.claude/
