@@ -56,10 +56,25 @@ class ReedScraper(BaseScraper):
         out = []
         for card in soup.select('article[data-id]'):
             a = card.select_one('a[data-element="job_title"]')
-            comp = card.select_one('a[data-element="company_name"]')
-            loc = card.select_one('li[data-element="location"]')
-            sal = card.select_one('li[data-element="salary"]')
-            dt = card.select_one('div[data-element="date_posted"]')
+            comp = card.select_one('a[data-element="recruiter"]')
+            loc = card.select_one('li[data-qa="job-metadata-location"]')
+            sal = card.select_one('li[data-qa="job-metadata-salary"]')
+            posted_by = card.select_one('div[data-qa="job-posted-by"]')
+            # "Posted by" text format: "22 April by Gold Group Ltd" or "Yesterday by X"
+            date_posted = ""
+            if posted_by:
+                pb_text = clean_text(posted_by.get_text(" "))
+                if " by " in pb_text:
+                    date_posted = pb_text.split(" by ", 1)[0].strip()
+                else:
+                    date_posted = pb_text
+            # Employment type: 3rd li in metadata (no data-qa) — "Permanent, full-time" etc.
+            emp_type = ""
+            metadata_lis = card.select('ul[data-qa="job-metadata"] > li')
+            for li in metadata_lis:
+                if not li.get("data-qa"):
+                    emp_type = clean_text(li.get_text())
+                    break
             if not a:
                 continue
             href = a.get("href", "")
@@ -69,10 +84,10 @@ class ReedScraper(BaseScraper):
                 "company": clean_text(comp.get_text()) if comp else "",
                 "location": clean_text(loc.get_text()) if loc else "",
                 "salary": clean_text(sal.get_text()) if sal else "",
-                "date_posted": clean_text(dt.get_text()) if dt else "",
+                "date_posted": date_posted,
                 "url": url,
                 "description": "",
-                "employment_type": "",
+                "employment_type": emp_type,
                 "shift_text": "",
             })
         return out

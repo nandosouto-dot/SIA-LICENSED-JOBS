@@ -37,6 +37,23 @@ def normalise_date(raw):
             return date(y, mo, d)
         except ValueError:
             return None
+    # "DD Month [YYYY]" e.g. "22 April", "14 May 2026"
+    months = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+              "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+    m = re.match(r"(\d{1,2})\s+([a-z]{3,})(?:\s+(\d{4}))?", text)
+    if m:
+        d = int(m.group(1))
+        mo = months.get(m.group(2)[:3])
+        y = int(m.group(3)) if m.group(3) else today.year
+        if mo:
+            try:
+                parsed = date(y, mo, d)
+                # If no year given and date is >30 days in the future, assume previous year
+                if not m.group(3) and (parsed - today).days > 30:
+                    parsed = date(y - 1, mo, d)
+                return parsed
+            except ValueError:
+                return None
     return None
 
 

@@ -2,7 +2,11 @@
 
 from abc import ABC, abstractmethod
 
+from bs4 import BeautifulSoup
+
 from config import PER_SITE_CAP
+from core.parser import extract_jsonld_jobpostings
+from utils.helpers import clean_text
 from utils.logger import get_logger, get_scraper_error_logger
 
 
@@ -23,6 +27,33 @@ class BaseScraper(ABC):
         """Return list of raw listing dicts. Required keys: title, company,
         location, salary, date_posted, url, description, employment_type, shift_text."""
         ...
+
+    def fetch_description(self, url: str) -> str:
+        """Pass 2: navigate to a job's URL and pull the full description.
+
+        Default impl: extract JSON-LD JobPosting.description if present, else
+        fall back to <body> text via BeautifulSoup. Subclasses may override
+        for sites with idiosyncratic detail pages.
+        """
+        if not url:
+            return ""
+        try:
+            self.engine.goto(url)
+            self.engine.dismiss_cookies()
+            if self.engine.detect_captcha():
+                self.engine.wait_for_human(self.name)
+            html = self.engine.page.content()
+        except Exception as e:
+            self.errlog.warning(f"fetch_description {url}: {e}")
+            return ""
+        for j in extract_jsonld_jobpostings(html):
+            desc = j.get("description")
+            if desc:
+                return clean_text(desc)
+        soup = BeautifulSoup(html, "lxml")
+        # Heuristic: grab the largest text block on the page.
+        main = soup.select_one('main') or soup.select_one('article') or soup.body
+        return clean_text(main.get_text(" ") if main else "")
 
     def run(self, role: str, max_results: int = PER_SITE_CAP) -> list[dict]:
         """Iterate through pages, dedupe by URL within this run, cap at max_results."""

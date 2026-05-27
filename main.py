@@ -37,7 +37,8 @@ def enrich(job):
     return job
 
 
-def apply_filters(jobs, counters):
+def apply_cheap_filters(jobs, counters):
+    """Filter on fields available from search results (no per-job page fetch needed)."""
     kept = []
     for j in jobs:
         if not passes_recency(j["date_posted_parsed"]):
@@ -46,6 +47,18 @@ def apply_filters(jobs, counters):
         if not passes_location(j.get("location")):
             counters["location"] += 1
             continue
+        kept.append(j)
+    return kept
+
+
+def apply_expensive_filters(jobs, counters):
+    """Filter on fields requiring the full job description (post Pass 2 fetch)."""
+    kept = []
+    for j in jobs:
+        # Rebuild text blob now that description is populated.
+        j["_text"] = " ".join(str(j.get(k, "")) for k in
+                              ("title", "description", "shift_text", "employment_type"))
+        j["rota"] = classify_rota(j["_text"])
         if not passes_night_shift(j["_text"]):
             counters["shift"] += 1
             continue
@@ -92,26 +105,47 @@ def write_output(jobs):
 
 def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
     started = time.time()
-    raw = []
+    raw_by_source = {}  # source name -> list of (job, scraper_instance)
     counters = {"recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
 
     with BrowserSession(headless=headless) as bs:
+        # Pass 1: search results → cheap fields only
         for role in roles:
             log.info(f"=== ROLE: {role} ===")
             for ScraperCls in scrapers:
                 s = ScraperCls(bs)
                 try:
-                    raw.extend(s.run(role, max_results=per_site_cap))
+                    listings = s.run(role, max_results=per_site_cap)
+                    raw_by_source.setdefault(s.name, []).extend([(j, s) for j in listings])
                 except Exception as e:
                     log.error(f"{s.name} failed for {role}: {e}")
                     s.errlog.error(traceback.format_exc())
 
+        # Flatten for filtering, keeping the originating scraper for Pass 2
+        flat = [(j, s) for items in raw_by_source.values() for (j, s) in items]
+        raw_count = len(flat)
+        log.info(f"Raw collected: {raw_count}")
+
+        cheap_survivors = []
+        for j, s in flat:
+            j = enrich(j)
+            if apply_cheap_filters([j], counters):
+                cheap_survivors.append((j, s))
+        log.info(f"After cheap filter (recency+location): {len(cheap_survivors)}")
+
+        # Pass 2: fetch description for each survivor
+        for j, s in cheap_survivors:
+            if not j.get("description"):
+                log.info(f"[Pass 2] fetching {s.name}: {j.get('title')!r}")
+                j["description"] = s.fetch_description(j.get("url"))
+
+        # Now apply expensive filters
+        expensive_input = [j for (j, _s) in cheap_survivors]
+        filtered = apply_expensive_filters(expensive_input, counters)
+        log.info(f"After expensive filter (shift+SIA+exclusion): {len(filtered)}")
+
         failed_navs = bs.failed_navigations
 
-    log.info(f"Raw collected: {len(raw)}")
-    enriched = [enrich(j) for j in raw]
-    filtered = apply_filters(enriched, counters)
-    log.info(f"After filter: {len(filtered)}")
     pre_dedupe = len(filtered)
     deduped = dedupe(filtered)
     dups_removed = pre_dedupe - len(deduped)
@@ -122,7 +156,7 @@ def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
     elapsed = time.time() - started
 
     print()
-    print(f"Total jobs found: {len(raw)}")
+    print(f"Total jobs found: {raw_count}")
     print(f"Accepted: {len(ranked)}")
     print(f"Rejected by filter: {sum(counters.values())} "
           f"(recency={counters['recency']}, location={counters['location']}, "
@@ -157,7 +191,9 @@ def _dry_run():
     raw = json.loads(fixture.read_text(encoding="utf-8"))
     counters = {"recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
     enriched = [enrich(j) for j in raw]
-    filtered = apply_filters(enriched, counters)
+    # Fixture data has descriptions pre-filled, so we can run both passes back-to-back.
+    cheap = apply_cheap_filters(enriched, counters)
+    filtered = apply_expensive_filters(cheap, counters)
     deduped = dedupe(filtered)
     ranked = rank(deduped)
     out_path = write_output(ranked)

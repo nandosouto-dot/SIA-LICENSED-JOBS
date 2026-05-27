@@ -124,7 +124,8 @@ class BrowserSession:
     def detect_captcha(self):
         for sel in CAPTCHA_SELECTORS:
             try:
-                if self.page.locator(sel).count():
+                loc = self.page.locator(sel).first
+                if loc.count() and loc.is_visible(timeout=500):
                     return True
             except Exception:
                 continue
