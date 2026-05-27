@@ -88,6 +88,15 @@ ROLE_BOOST_KEYWORDS = [
     "reception", "front desk",
 ]
 
+# Title pre-filter — applied BEFORE the expensive per-job page fetch.
+# Job title must contain at least one of these as a whole word. Avoids
+# wasting Pass-2 fetches on non-security 'Supervisor' / 'Officer' roles
+# returned by loose keyword searches (e.g. 'Cafe Supervisor', 'Lifeguard').
+# Listed as a single regex pattern with word boundaries.
+TITLE_SECURITY_PATTERN = (
+    r"\b(security|door|concierge|guard|gatehouse|sia|patrol|bouncer|doorman)\b"
+)
+
 # Exclusion keywords (case-insensitive substring match in description)
 EXCLUSION_KEYWORDS = [
     "rotating day/night", "rotating days/nights", "rotating shifts",

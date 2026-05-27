@@ -63,6 +63,10 @@ class BrowserSession:
             "locale": "en-GB",
             "timezone_id": "Europe/London",
             "extra_http_headers": {"Accept-Language": "en-GB,en;q=0.9"},
+            # Disable HTTP/2: Totaljobs + CareerStructure reject Chromium's HTTP/2
+            # handshake with ERR_HTTP2_PROTOCOL_ERROR. Forcing HTTP/1.1 fixes both
+            # at the cost of marginally slower TLS for sites that prefer HTTP/2.
+            "args": ["--disable-http2"],
         }
         if self.proxy:
             launch_kwargs["proxy"] = {"server": self.proxy}

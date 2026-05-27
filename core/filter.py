@@ -6,9 +6,11 @@ from datetime import date, timedelta
 from config import (
     DAY_KEYWORDS, EXCLUSION_KEYWORDS, LONDON_AREA_KEYWORDS, MAX_COMMUTE_MIN,
     NIGHT_KEYWORDS, POSTCODE_PRIORITY, RECENCY_DAYS,
-    ROTA_4_ON_4_OFF_PATTERNS, SIA_KEYWORDS,
+    ROTA_4_ON_4_OFF_PATTERNS, SIA_KEYWORDS, TITLE_SECURITY_PATTERN,
 )
 from core.location import commute_minutes_upper, in_target_area, postcode_prefix
+
+_TITLE_SECURITY_RE = re.compile(TITLE_SECURITY_PATTERN, re.IGNORECASE)
 
 
 def _lower(t):
@@ -20,6 +22,13 @@ def passes_recency(date_posted, max_age_days=RECENCY_DAYS):
         return False
     delta = (date.today() - date_posted).days
     return 0 <= delta <= max_age_days
+
+
+def passes_title_security(title):
+    """Cheap title-only check: must mention security/door/concierge/guard/etc."""
+    if not title:
+        return False
+    return bool(_TITLE_SECURITY_RE.search(title))
 
 
 def passes_location(location_text):
@@ -80,6 +89,20 @@ if __name__ == "__main__":
     assert passes_location("Croydon CR0") is True
     assert passes_location("Manchester M1") is False
     assert passes_location("") is False
+
+    # Title pre-filter — keep security/door/concierge/guard, drop everything else
+    assert passes_title_security("Security Officer") is True
+    assert passes_title_security("Door Supervisor") is True
+    assert passes_title_security("Night Concierge") is True
+    assert passes_title_security("Static Security Guard") is True
+    assert passes_title_security("Gatehouse Security") is True
+    assert passes_title_security("SIA Temp Receptionist") is True
+    assert passes_title_security("Lifeguard - Flexible") is False  # guard inside lifeguard
+    assert passes_title_security("Housekeeping Supervisor") is False
+    assert passes_title_security("Cafe Supervisor Monday - Friday") is False
+    assert passes_title_security("Van Driver") is False
+    assert passes_title_security("") is False
+    assert passes_title_security(None) is False
 
     assert passes_night_shift("Permanent nights, 4 on 4 off") is True
     assert passes_night_shift("Day shift only, 9-5") is False

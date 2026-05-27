@@ -10,7 +10,7 @@ from config import OUTPUT_DIR, OUTPUT_FILENAME_FMT, PER_SITE_CAP, TARGET_ROLES
 from core.dedupe import dedupe
 from core.filter import (
     classify_rota, passes_exclusions, passes_location, passes_night_shift,
-    passes_recency, passes_sia_explicit,
+    passes_recency, passes_sia_explicit, passes_title_security,
 )
 from core.location import commute_estimate, postcode_prefix
 from core.playwright_engine import BrowserSession
@@ -38,9 +38,15 @@ def enrich(job):
 
 
 def apply_cheap_filters(jobs, counters):
-    """Filter on fields available from search results (no per-job page fetch needed)."""
+    """Filter on fields available from search results (no per-job page fetch needed).
+
+    Order matters: cheapest rejections first to minimise wasted work.
+    """
     kept = []
     for j in jobs:
+        if not passes_title_security(j.get("title")):
+            counters["title"] += 1
+            continue
         if not passes_recency(j["date_posted_parsed"]):
             counters["recency"] += 1
             continue
@@ -106,7 +112,7 @@ def write_output(jobs):
 def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
     started = time.time()
     raw_by_source = {}  # source name -> list of (job, scraper_instance)
-    counters = {"recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
+    counters = {"title": 0, "recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
 
     with BrowserSession(headless=headless) as bs:
         # Pass 1: search results → cheap fields only
@@ -159,9 +165,9 @@ def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
     print(f"Total jobs found: {raw_count}")
     print(f"Accepted: {len(ranked)}")
     print(f"Rejected by filter: {sum(counters.values())} "
-          f"(recency={counters['recency']}, location={counters['location']}, "
-          f"shift={counters['shift']}, SIA={counters['sia']}, "
-          f"exclusion={counters['exclusion']})")
+          f"(title={counters['title']}, recency={counters['recency']}, "
+          f"location={counters['location']}, shift={counters['shift']}, "
+          f"SIA={counters['sia']}, exclusion={counters['exclusion']})")
     print(f"Duplicates removed: {dups_removed}")
     print(f"Failed page loads: {failed_navs}")
     print(f"Execution time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}")
@@ -189,7 +195,7 @@ def _dry_run():
         print(f"No fixture at {fixture}. Create one with sample raw jobs.")
         sys.exit(1)
     raw = json.loads(fixture.read_text(encoding="utf-8"))
-    counters = {"recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
+    counters = {"title": 0, "recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
     enriched = [enrich(j) for j in raw]
     # Fixture data has descriptions pre-filled, so we can run both passes back-to-back.
     cheap = apply_cheap_filters(enriched, counters)
