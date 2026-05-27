@@ -113,19 +113,34 @@ def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
     started = time.time()
     raw_by_source = {}  # source name -> list of (job, scraper_instance)
     counters = {"title": 0, "recency": 0, "location": 0, "shift": 0, "sia": 0, "exclusion": 0}
+    dead_scrapers = set()  # Circuit breaker: scraper classes that nav-failed + 0 results.
 
     with BrowserSession(headless=headless) as bs:
         # Pass 1: search results → cheap fields only
         for role in roles:
             log.info(f"=== ROLE: {role} ===")
             for ScraperCls in scrapers:
+                if ScraperCls in dead_scrapers:
+                    continue
                 s = ScraperCls(bs)
+                listings = []
+                before_failed = bs.failed_navigations
                 try:
                     listings = s.run(role, max_results=per_site_cap)
                     raw_by_source.setdefault(s.name, []).extend([(j, s) for j in listings])
                 except Exception as e:
                     log.error(f"{s.name} failed for {role}: {e}")
                     s.errlog.error(traceback.format_exc())
+                # Circuit breaker: if every nav attempt failed AND we got nothing,
+                # this site is unreachable for this run — skip it for remaining roles
+                # instead of wasting 90s+ on each one.
+                nav_failures = bs.failed_navigations - before_failed
+                if nav_failures > 0 and not listings:
+                    dead_scrapers.add(ScraperCls)
+                    log.warning(
+                        f"Circuit breaker: {s.name} had {nav_failures} nav failure(s) "
+                        f"and returned 0 listings — skipping for remaining roles in this run"
+                    )
 
         # Flatten for filtering, keeping the originating scraper for Pass 2
         flat = [(j, s) for items in raw_by_source.values() for (j, s) in items]
@@ -170,6 +185,9 @@ def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
           f"SIA={counters['sia']}, exclusion={counters['exclusion']})")
     print(f"Duplicates removed: {dups_removed}")
     print(f"Failed page loads: {failed_navs}")
+    if dead_scrapers:
+        names = sorted(cls.__name__.replace("Scraper", "") for cls in dead_scrapers)
+        print(f"Scrapers skipped by circuit breaker: {', '.join(names)}")
     print(f"Execution time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}")
     print(f"Output: {out_path}")
 
