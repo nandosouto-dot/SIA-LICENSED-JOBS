@@ -100,10 +100,11 @@ class BrowserSession:
             except PWTimeout as e:
                 last_err = e
                 log.warning(f"goto attempt {attempt}/{retries} timed out: {url}")
-                random_delay(2000 * attempt, 4000 * attempt)
             except Exception as e:
                 last_err = e
                 log.warning(f"goto attempt {attempt}/{retries} error: {e}")
+            # Backoff only between attempts, not after the final one.
+            if attempt < retries:
                 random_delay(2000 * attempt, 4000 * attempt)
         self.failed_navigations += 1
         raise NavigationError(f"Could not load {url}: {last_err}")

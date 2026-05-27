@@ -34,8 +34,10 @@ Reed · Indeed UK · CV-Library · Totaljobs · LinkedIn · Hays · Randstad UK 
 git clone git@github.com:nandosouto-dot/SIA-LICENSED-JOBS.git
 cd SIA-LICENSED-JOBS
 python -m venv venv
-venv\Scripts\activate          # Windows
-# or: source venv/bin/activate   (macOS / Linux)
+# Activate (pick the one matching your shell):
+venv\Scripts\Activate.ps1       # Windows PowerShell
+venv\Scripts\activate.bat       # Windows cmd
+source venv/bin/activate        # macOS / Linux
 pip install -r requirements.txt
 python -m playwright install chromium
 ```

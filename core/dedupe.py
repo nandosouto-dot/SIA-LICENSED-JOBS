@@ -23,9 +23,16 @@ def dedupe(jobs):
             if cu and cu == canonical_url(kept.get("url")):
                 is_dup = True
                 break
+            # Fuzzy match only when BOTH sides have non-empty title and company.
+            # rapidfuzz.WRatio('', '') returns 100, which would falsely dedupe
+            # two jobs with blank fields. Defensive guard.
+            kept_title = (kept.get("title") or "").strip()
+            kept_company = (kept.get("company") or "").strip()
+            if not (title and company and kept_title and kept_company):
+                continue
             if (
-                fuzz.WRatio(title, kept.get("title") or "") >= 90
-                and fuzz.WRatio(company, kept.get("company") or "") >= 95
+                fuzz.WRatio(title, kept_title) >= 90
+                and fuzz.WRatio(company, kept_company) >= 95
             ):
                 is_dup = True
                 break
@@ -49,4 +56,11 @@ if __name__ == "__main__":
     ]
     out = dedupe(jobs)
     assert len(out) == 2, [j["url"] for j in out]
+
+    # Fix D: two jobs with blank title+company must NOT collapse into one
+    blanks = [
+        {"title": "", "company": "", "url": "https://a.com/1"},
+        {"title": "", "company": "", "url": "https://b.com/2"},
+    ]
+    assert len(dedupe(blanks)) == 2, "blank-field jobs falsely deduped"
     print("dedupe OK")

@@ -134,7 +134,7 @@ def run(roles, scrapers, headless=True, per_site_cap=PER_SITE_CAP):
 
         cheap_survivors = []
         for j, s in flat:
-            j = enrich(j)
+            enrich(j)  # mutates in place
             if apply_cheap_filters([j], counters):
                 cheap_survivors.append((j, s))
         log.info(f"After cheap filter (recency+location): {len(cheap_survivors)}")

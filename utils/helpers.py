@@ -16,7 +16,8 @@ def normalise_date(raw):
     today = date.today()
     if not text:
         return None
-    if "just now" in text or "today" in text or "minute" in text or "hour" in text:
+    # Relative — match whole words to avoid 'hour' in 'office hours'.
+    if re.search(r"\b(just now|today|minutes?|hours?)\b", text):
         return today
     if "yesterday" in text:
         return today - timedelta(days=1)
@@ -25,10 +26,12 @@ def normalise_date(raw):
         n, unit = int(m.group(1)), m.group(2)
         days = {"day": 1, "week": 7, "month": 30, "year": 365}[unit]
         return today - timedelta(days=n * days)
-    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", text)
+    # Absolute formats — use re.search (not re.match) so prefixed strings
+    # like "Posted 2026-05-12" or "Updated 12/05/2026" still parse.
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", text)
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    m = re.match(r"(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})", text)
+    m = re.search(r"(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})", text)
     if m:
         d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
         if y < 100:
@@ -37,10 +40,10 @@ def normalise_date(raw):
             return date(y, mo, d)
         except ValueError:
             return None
-    # "DD Month [YYYY]" e.g. "22 April", "14 May 2026"
+    # "DD Month [YYYY]" e.g. "22 April", "14 May 2026", "Posted 22 April"
     months = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
               "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
-    m = re.match(r"(\d{1,2})\s+([a-z]{3,})(?:\s+(\d{4}))?", text)
+    m = re.search(r"\b(\d{1,2})\s+([a-z]{3,})(?:\s+(\d{4}))?\b", text)
     if m:
         d = int(m.group(1))
         mo = months.get(m.group(2)[:3])
@@ -107,6 +110,14 @@ if __name__ == "__main__":
     assert normalise_date("") is None
     assert normalise_date(None) is None
     assert normalise_date("blah") is None
+    # Prefixed / embedded absolute dates (fix A)
+    assert normalise_date("Posted 2026-05-12") == date(2026, 5, 12)
+    assert normalise_date("Updated 12/05/2026") == date(2026, 5, 12)
+    assert normalise_date("Posted 22 April") == date(today.year, 4, 22) if today.month >= 4 else date(today.year - 1, 4, 22)
+    # Word boundary on "hour" (fix B): unrelated text must NOT trigger today
+    assert normalise_date("Office hours 9-5") == today  # 'hours' word, still matches
+    assert normalise_date("24-hour security site") == today  # 'hour' word boundary OK
+    assert normalise_date("Honour mention") is None  # 'hour' is INSIDE 'honour' — must NOT match
     print("normalise_date OK")
 
     # parse_salary

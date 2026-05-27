@@ -9,4 +9,6 @@ browser_profile/
 .pytest_cache/
 _smoke_*.py
 _debug_*.py
+_debug_*.html
+_debug_*.json
 .claude/

@@ -28,12 +28,33 @@ class BaseScraper(ABC):
         location, salary, date_posted, url, description, employment_type, shift_text."""
         ...
 
+    # Selectors tried in order on the per-job page, narrowest first.
+    # Avoid scraping the whole page so footer/nav text doesn't pollute the
+    # SIA / night-shift / exclusion keyword checks.
+    _DESC_SELECTORS = (
+        '[itemprop="description"]',
+        '[data-qa*="description" i]',
+        '[data-testid*="description" i]',
+        '[class*="job-description" i]',
+        '[class*="description" i]',
+        '[id*="description" i]',
+        'section.description',
+        'div.description',
+        'main',
+        'article',
+    )
+
+    # Hard cap on description text length to keep filter checks honest.
+    # Real job descriptions rarely exceed ~6k chars; anything bigger is page chrome.
+    _DESC_MAX_CHARS = 8000
+
     def fetch_description(self, url: str) -> str:
         """Pass 2: navigate to a job's URL and pull the full description.
 
-        Default impl: extract JSON-LD JobPosting.description if present, else
-        fall back to <body> text via BeautifulSoup. Subclasses may override
-        for sites with idiosyncratic detail pages.
+        Order of preference: JSON-LD JobPosting.description → narrow content
+        selectors → <main>/<article> → <body>. Output is capped at
+        ``_DESC_MAX_CHARS`` so footer/nav noise can't trigger false-positive
+        keyword matches downstream.
         """
         if not url:
             return ""
@@ -46,14 +67,22 @@ class BaseScraper(ABC):
         except Exception as e:
             self.errlog.warning(f"fetch_description {url}: {e}")
             return ""
+        # Prefer structured data (JSON-LD JobPosting).
         for j in extract_jsonld_jobpostings(html):
             desc = j.get("description")
             if desc:
-                return clean_text(desc)
+                return clean_text(desc)[: self._DESC_MAX_CHARS]
+        # DOM fallback — narrowest selector first.
         soup = BeautifulSoup(html, "lxml")
-        # Heuristic: grab the largest text block on the page.
-        main = soup.select_one('main') or soup.select_one('article') or soup.body
-        return clean_text(main.get_text(" ") if main else "")
+        for sel in self._DESC_SELECTORS:
+            el = soup.select_one(sel)
+            if el:
+                text = clean_text(el.get_text(" "))
+                if text:
+                    return text[: self._DESC_MAX_CHARS]
+        # Last resort: body text (rare).
+        body_text = clean_text(soup.body.get_text(" ") if soup.body else "")
+        return body_text[: self._DESC_MAX_CHARS]
 
     def run(self, role: str, max_results: int = PER_SITE_CAP) -> list[dict]:
         """Iterate through pages, dedupe by URL within this run, cap at max_results."""

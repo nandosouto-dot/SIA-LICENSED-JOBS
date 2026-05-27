@@ -18,7 +18,7 @@ class MorsonScraper(BaseScraper):
     def parse_listings(self, page):
         soup = BeautifulSoup(page.content(), "lxml")
         out = []
-        for card in soup.select("article.job, div.job-card, li.job-result, div.job"):
+        for card in soup.select("article.job, div.job-card, li.job-result"):
             title_el = card.select_one("h2 a, h3 a, a.job-title")
             comp_el = card.select_one(".company, .employer")
             loc_el = card.select_one(".location")
