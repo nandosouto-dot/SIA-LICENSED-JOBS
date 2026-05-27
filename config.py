@@ -49,6 +49,39 @@ RECENCY_DAYS = 7
 PER_SITE_CAP = 50
 MAX_COMMUTE_MIN = 60
 
+# London-area place names that map to acceptable postcodes (lowercase, substring match).
+# Used as a fallback in passes_location when a job listing has no postcode in its
+# location string (common with Reed, Indeed, etc. — they show "Sidcup, Kent" not "DA14").
+LONDON_AREA_KEYWORDS = {
+    # Generic
+    "london",
+    # SE (south-east London)
+    "bermondsey", "camberwell", "catford", "charlton", "crystal palace",
+    "deptford", "dulwich", "eltham", "greenwich", "lewisham", "new cross",
+    "peckham", "rotherhithe", "sydenham", "walworth", "woolwich",
+    "blackheath", "kennington", "elephant and castle",
+    # SW (south-west London)
+    "balham", "battersea", "brixton", "chelsea", "clapham", "fulham",
+    "lambeth", "putney", "streatham", "tooting", "vauxhall", "wandsworth",
+    "wimbledon", "earlsfield", "stockwell",
+    # SM (Sutton)
+    "sutton", "carshalton", "cheam", "hackbridge", "wallington",
+    # CR (Croydon)
+    "croydon", "addington", "coulsdon", "norbury", "purley",
+    "south norwood", "thornton heath", "selsdon", "kenley",
+    # BR (Bromley)
+    "bromley", "beckenham", "biggin hill", "chislehurst", "hayes",
+    "keston", "orpington", "petts wood", "west wickham",
+    # DA (Dartford / Bexley — commute range)
+    "sidcup", "bexley", "bexleyheath", "dartford", "welling", "crayford",
+    "erith", "belvedere",
+    # KT (Kingston — commute range)
+    "kingston upon thames", "kingston", "surbiton", "new malden",
+    "tolworth", "chessington",
+    # TW (Twickenham — commute range)
+    "twickenham", "richmond", "teddington", "hampton",
+}
+
 # Boost keywords for ranking (case-insensitive substring match)
 ROLE_BOOST_KEYWORDS = [
     "static", "corporate", "concierge", "gatehouse",

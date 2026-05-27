@@ -4,8 +4,9 @@ import re
 from datetime import date, timedelta
 
 from config import (
-    DAY_KEYWORDS, EXCLUSION_KEYWORDS, MAX_COMMUTE_MIN, NIGHT_KEYWORDS,
-    POSTCODE_PRIORITY, RECENCY_DAYS, ROTA_4_ON_4_OFF_PATTERNS, SIA_KEYWORDS,
+    DAY_KEYWORDS, EXCLUSION_KEYWORDS, LONDON_AREA_KEYWORDS, MAX_COMMUTE_MIN,
+    NIGHT_KEYWORDS, POSTCODE_PRIORITY, RECENCY_DAYS,
+    ROTA_4_ON_4_OFF_PATTERNS, SIA_KEYWORDS,
 )
 from core.location import commute_minutes_upper, in_target_area, postcode_prefix
 
@@ -22,12 +23,19 @@ def passes_recency(date_posted, max_age_days=RECENCY_DAYS):
 
 
 def passes_location(location_text):
-    prefix = postcode_prefix(location_text)
-    if not prefix:
+    if not location_text:
         return False
-    if in_target_area(prefix):
-        return True
-    return commute_minutes_upper(prefix) <= MAX_COMMUTE_MIN
+    # First try postcode-based matching (most precise).
+    prefix = postcode_prefix(location_text)
+    if prefix:
+        if in_target_area(prefix):
+            return True
+        if commute_minutes_upper(prefix) <= MAX_COMMUTE_MIN:
+            return True
+    # Fallback: many scraped listings show city/area names with no postcode
+    # (e.g. "Sidcup, Kent"). Accept if any London-area keyword appears.
+    t = location_text.lower()
+    return any(kw in t for kw in LONDON_AREA_KEYWORDS)
 
 
 def passes_night_shift(text):
